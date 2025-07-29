@@ -40,6 +40,7 @@
 
 1. **Install Dependencies**  
    Make sure you have installed all required dependencies listed in `requirements.txt`:
+
    ```bash
    pip install -r requirements.txt
    ```
@@ -49,8 +50,9 @@
 
 3. **Run Jarvis**  
    Start the assistant by running:
+
    ```bash
    python main.py
    ```
----
 
+---

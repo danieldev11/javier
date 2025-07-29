@@ -1,12 +1,11 @@
-import os
 import logging
 import time
 import pyttsx3
+from typing import Any
 from dotenv import load_dotenv
 import speech_recognition as sr
-from langchain_ollama import ChatOllama, OllamaLLM
+from langchain_ollama import ChatOllama
 # from langchain_openai import ChatOpenAI # if you want to use openai
-from langchain_core.messages import HumanMessage
 from langchain.agents import AgentExecutor, create_tool_calling_agent
 from langchain_core.prompts import ChatPromptTemplate
 from tools.time import get_time 
@@ -48,10 +47,18 @@ executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
 def speak_text(text: str):
     try:
         engine = pyttsx3.init()
-        for voice in engine.getProperty('voices'):
-            if "jamie" in voice.name.lower():
-                engine.setProperty('voice', voice.id)
-                break
+        voices = engine.getProperty('voices')
+        # Set voice if available
+        try:
+            if voices:
+                for i, voice in enumerate(voices):  # type: ignore
+                    if voice and hasattr(voice, 'name') and "jamie" in voice.name.lower():
+                        engine.setProperty('voice', voice.id)
+                        break
+        except (TypeError, AttributeError):
+            # If voice selection fails, continue with default voice
+            pass
+        
         engine.setProperty('rate', 180)
         engine.setProperty('volume', 1.0)
         engine.say(text)
@@ -73,7 +80,7 @@ def write():
                     if not conversation_mode:
                         logging.info("🎤 Listening for wake word...")
                         audio = recognizer.listen(source, timeout=10)
-                        transcript = recognizer.recognize_google(audio)
+                        transcript = recognizer.recognize_google(audio)  # type: ignore
                         logging.info(f"🗣 Heard: {transcript}")
 
                         if TRIGGER_WORD.lower() in transcript.lower():
@@ -86,7 +93,7 @@ def write():
                     else:
                         logging.info("🎤 Listening for next command...")
                         audio = recognizer.listen(source, timeout=10)
-                        command = recognizer.recognize_google(audio)
+                        command = recognizer.recognize_google(audio)  # type: ignore
                         logging.info(f"📥 Command: {command}")
 
                         logging.info("🤖 Sending command to agent...")
@@ -98,13 +105,11 @@ def write():
                         speak_text(content)
                         last_interaction_time = time.time()
 
-                        if time.time() - last_interaction_time > CONVERSATION_TIMEOUT:
-                            logging.info("⌛ Timeout: Returning to wake word mode.")
-                            conversation_mode = False
+                        # Check for timeout - this should be in the except block, not here
 
                 except sr.WaitTimeoutError:
                     logging.warning("⚠️ Timeout waiting for audio.")
-                    if conversation_mode and time.time() - last_interaction_time > CONVERSATION_TIMEOUT:
+                    if conversation_mode and last_interaction_time and time.time() - last_interaction_time > CONVERSATION_TIMEOUT:
                         logging.info("⌛ No input in conversation mode. Returning to wake word mode.")
                         conversation_mode = False
                 except sr.UnknownValueError:
